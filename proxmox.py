@@ -224,7 +224,7 @@ class ProxmoxAPI(object):
                 return "Windows"
             elif "linux" in os_info_dict.get('name').lower():
                 return "Linux"
-        return "Other OS"
+        return "OtherOS"
             
 
     def openvz_ip_address(self, node, vm):
