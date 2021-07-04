@@ -28,9 +28,6 @@
 # Updated 2020 by Khramov Vladimir <khramov.vladimir@gmail.com>
 #
 # Fixed IP section from qemu agent
-# Updated 2021 by Khramov Vladimir <khramov.vladimir@gmail.com>
-#
-# Added OS detection (Windows / Linux)
         
 from six.moves.urllib import request, parse, error
 
@@ -221,16 +218,13 @@ class ProxmoxAPI(object):
         return None
 
     def qemu_os_info(self, node, vm):
-        os_info = None
         os_info_dict = self.get('api2/json/nodes/{0}/qemu/{1}/agent/get-osinfo'.format(node, vm))['result']
-        # print(os_info_dict)
         if os_info_dict.get('name'):
             if "windows" in os_info_dict.get('name').lower():
                 return "Windows"
             elif "linux" in os_info_dict.get('name').lower():
                 return "Linux"
-            #return os_info_dict.get('name')
-            
+        return "Other OS"
             
 
     def openvz_ip_address(self, node, vm):
