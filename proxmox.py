@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright (C) 2014  Mathieu GAUTHIER-LAFAYE <gauthierl@lapth.cnrs.fr>
 #
 # This program is free software: you can redistribute it and/or modify
@@ -28,6 +28,9 @@
 # Updated 2020 by Khramov Vladimir <khramov.vladimir@gmail.com>
 #
 # Fixed IP section from qemu agent
+# Updated 2021 by Khramov Vladimir <khramov.vladimir@gmail.com>
+#
+# Added OS detection (Windows / Linux)
         
 from six.moves.urllib import request, parse, error
 
@@ -217,6 +220,19 @@ class ProxmoxAPI(object):
                                 return network['ip-address']
         return None
 
+    def qemu_os_info(self, node, vm):
+        os_info = None
+        os_info_dict = self.get('api2/json/nodes/{0}/qemu/{1}/agent/get-osinfo'.format(node, vm))['result']
+        # print(os_info_dict)
+        if os_info_dict.get('name'):
+            if "windows" in os_info_dict.get('name').lower():
+                return "Windows"
+            elif "linux" in os_info_dict.get('name').lower():
+                return "Linux"
+            #return os_info_dict.get('name')
+            
+            
+
     def openvz_ip_address(self, node, vm):
         try:
             config = self.get('api2/json/nodes/{0}/lxc/{1}/config'.format(node, vm))
@@ -298,6 +314,11 @@ def main_list(options, config_path):
                 # If Qemu Agent is enabled, try to guess the IP address
                 if proxmox_api.qemu_agent(node, vmid):
                     results['_meta']['hostvars'][vm]['ansible_host'] = proxmox_api.qemu_ip_address(node, vmid)
+                    # Try to detect OS
+                    if proxmox_api.qemu_os_info(node, vmid) in results.keys():
+                        results[proxmox_api.qemu_os_info(node, vmid)]['hosts'] += [vm]
+                    else:
+                        results[proxmox_api.qemu_os_info(node, vmid)] = {'hosts': [vm] }
             else:
                 results['_meta']['hostvars'][vm]['ansible_host'] = proxmox_api.openvz_ip_address(node, vmid)
             
