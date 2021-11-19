@@ -25,10 +25,11 @@
 # { "groups": ["utility", "databases"], "a": false, "b": true }
 
 
-# Updated 2020 by Khramov Vladimir <khramov.vladimir@gmail.com>
+# Updated 2021 by Khramov Vladimir <khramov.vladimir@gmail.com>
 #
 # Fixed IP section from qemu agent
-        
+# Fixed template GET in Proxmox 7
+
 from six.moves.urllib import request, parse, error
 
 try:
@@ -69,7 +70,7 @@ class ProxmoxVMList(list):
 
     def get_names(self):
         if self.ver >= 4.0:
-            return [vm['name'] for vm in self if vm['template'] != 1]
+            return [vm['name'] for vm in self if vm.get('template') != 1]
         else:
             return [vm['name'] for vm in self]
 
@@ -97,7 +98,8 @@ class ProxmoxVersion(dict):
 
 class ProxmoxPool(dict):
     def get_members_name(self):
-        return [member['name'] for member in self['members'] if (member['type'] == 'qemu' or member['type'] == 'lxc') and member['template'] != 1]
+        return [member['name'] for member in self['members'] if
+                (member['type'] == 'qemu' or member['type'] == 'lxc') and member['template'] != 1]
 
 
 class ProxmoxAPI(object):
@@ -133,7 +135,7 @@ class ProxmoxAPI(object):
         elif not options.password:
             raise Exception(
                 'Missing mandatory parameter --password (or PROXMOX_PASSWORD or "password" key in config file).')
-        
+
         # URL should end with a trailing slash
         if not options.url.endswith("/"):
             options.url = options.url + "/"
@@ -196,7 +198,7 @@ class ProxmoxAPI(object):
 
     def pool(self, poolid):
         return ProxmoxPool(self.get('api2/json/pools/{0}'.format(poolid)))
-    
+
     def qemu_agent(self, node, vm):
         try:
             info = self.get('api2/json/nodes/{0}/qemu/{1}/agent/info'.format(node, vm))
@@ -204,7 +206,7 @@ class ProxmoxAPI(object):
                 return True
         except HTTPError as error:
             return False
-    
+
     def qemu_ip_address(self, node, vm):
         ip_address = None
         network_list = self.get('api2/json/nodes/{0}/qemu/{1}/agent/network-get-interfaces'.format(node, vm))['result']
@@ -218,27 +220,29 @@ class ProxmoxAPI(object):
         return None
 
     def qemu_os_info(self, node, vm):
+        os_info = None
         os_info_dict = self.get('api2/json/nodes/{0}/qemu/{1}/agent/get-osinfo'.format(node, vm))['result']
+        # print(os_info_dict)
         if os_info_dict.get('name'):
             if "windows" in os_info_dict.get('name').lower():
                 return "Windows"
             elif "linux" in os_info_dict.get('name').lower():
                 return "Linux"
+            # return os_info_dict.get('name')
         return "OtherOS"
-            
 
     def openvz_ip_address(self, node, vm):
         try:
             config = self.get('api2/json/nodes/{0}/lxc/{1}/config'.format(node, vm))
         except HTTPError:
             return False
-        
+
         try:
             ip_address = re.search('ip=(\d*\.\d*\.\d*\.\d*)', config['net0']).group(1)
             return ip_address
         except:
             return False
-    
+
     def version(self):
         return ProxmoxVersion(self.get('api2/json/version'))
 
@@ -303,7 +307,7 @@ def main_list(options, config_path):
                 metadata = {
                     'notes': description
                 }
-            
+
             if type == 'qemu':
                 # If Qemu Agent is enabled, try to guess the IP address
                 if proxmox_api.qemu_agent(node, vmid):
@@ -312,10 +316,10 @@ def main_list(options, config_path):
                     if proxmox_api.qemu_os_info(node, vmid) in results.keys():
                         results[proxmox_api.qemu_os_info(node, vmid)]['hosts'] += [vm]
                     else:
-                        results[proxmox_api.qemu_os_info(node, vmid)] = {'hosts': [vm] }
+                        results[proxmox_api.qemu_os_info(node, vmid)] = {'hosts': [vm]}
             else:
                 results['_meta']['hostvars'][vm]['ansible_host'] = proxmox_api.openvz_ip_address(node, vmid)
-            
+
             if 'groups' in metadata:
                 # print metadata
                 for group in metadata['groups']:
