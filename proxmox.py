@@ -214,9 +214,11 @@ class ProxmoxAPI(object):
             for networks in network_list:
                 if networks:
                     if type(networks) is dict:
-                        for network in networks['ip-addresses']:
-                            if network['ip-address'].startswith('192'):
-                                return network['ip-address']
+                        networks = networks.get('ip-addresses')
+                        if networks:
+                            for network in networks:
+                                if network['ip-address'].startswith('192'):
+                                    return network['ip-address']
         return None
 
     def qemu_os_info(self, node, vm):
